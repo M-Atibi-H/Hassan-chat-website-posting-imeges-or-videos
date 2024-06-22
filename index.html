@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Page</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-image: url('1718605413739.jpg');
+      background-size: cover;
+    }
+    form {
+      max-width: 300px;
+      margin: 0 auto 20px;
+      padding: 20px;
+      border: 1px solid #ccc;
+      background-color: rgba(249, 249, 249, 0.8);
+    }
+    input[type="text"], input[type="password"] {
+      width: calc(100% - 20px);
+      padding: 10px;
+      margin: 8px 0;
+      display: inline-block;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    input[type="submit"] {
+      background-color: #4CAF50;
+      color: white;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+    }
+    input[type="submit"]:hover {
+      background-color: #45a049;
+    }
+    #dashboardSection, #chatSection {
+      display: none;
+      max-width: 600px;
+      width: 100%;
+      margin-top: 20px;
+    }
+    #messages {
+      border: 1px solid #ccc;
+      padding: 10px;
+      height: 300px;
+      overflow-y: scroll;
+      background-color: rgba(249, 249, 249, 0.8);
+    }
+    #messages p {
+      margin: 10px 0;
+    }
+    #newMessage {
+      width: calc(100% - 22px);
+      padding: 10px;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    #sendMessage {
+      padding: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    #userList {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .user {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .user img {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+    }
+    .post {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin: 10px 0;
+      background-color: rgba(249, 249, 249, 0.8);
+    }
+    .post img, .post video {
+      max-width: 100%;
+    }
+    .section-toggle {
+      cursor: pointer;
+      color: blue;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h1>Chat Page</h1>
+
+  <div id="loginSection">
+    <h2>Login</h2>
+    <form id="loginForm">
+      <label for="loginUsername">Username:</label>
+      <input type="text" id="loginUsername" name="loginUsername" required>
+      <label for="loginPassword">Password:</label>
+      <input type="password" id="loginPassword" name="loginPassword" required>
+      <input type="submit" value="Login">
+    </form>
+    <p>Don't have an account? <a href="#" id="showSignup">Sign Up</a></p>
+  </div>
+
+  <div id="signupSection" style="display: none;">
+    <h2>Sign Up</h2>
+    <form id="signupForm">
+      <label for="signupUsername">Username:</label>
+      <input type="text" id="signupUsername" name="signupUsername" required>
+      <label for="signupPassword">Password:</label>
+      <input type="password" id="signupPassword" name="signupPassword" required>
+      <label for="signupImage">Cover Image URL:</label>
+      <input type="text" id="signupImage" name="signupImage" placeholder="Image URL">
+      <input type="submit" value="Sign Up">
+    </form>
+    <p>Already have an account? <a href="#" id="showLogin">Login</a></p>
+  </div>
+
+  <div id="userList"></div>
+
+  <div id="dashboardSection">
+    <h2>Dashboard</h2>
+    <label class="file-upload">
+      <input type="file" id="dashboardInput" />
+      Upload image or video
+    </label>
+    <div id="posts"></div>
+    <p class="section-toggle" id="goToChats">Go to Chats</p>
+  </div>
+
+  <div id="chatSection">
+    <div id="messages"></div>
+    <input type="text" id="newMessage" placeholder="Type your message here...">
+    <button id="sendMessage">Send</button>
+    <p class="section-toggle" id="goToDashboard">Go to Dashboard</p>
+  </div>
+
+  <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const loginSection = document.getElementById('loginSection');
+      const signupSection = document.getElementById('signupSection');
+      const dashboardSection = document.getElementById('dashboardSection');
+      const chatSection = document.getElementById('chatSection');
+      const showSignupLink = document.getElementById('showSignup');
+      const showLoginLink = document.getElementById('showLogin');
+      const loginForm = document.getElementById('loginForm');
+      const signupForm = document.getElementById('signupForm');
+      const messagesDiv = document.getElementById('messages');
+      const sendMessageBtn = document.getElementById('sendMessage');
+      const newMessageInput = document.getElementById('newMessage');
+      const userList = document.getElementById('userList');
+      const dashboardInput = document.getElementById('dashboardInput');
+      const postsDiv = document.getElementById('posts');
+      const goToChats = document.getElementById('goToChats');
+      const goToDashboard = document.getElementById('goToDashboard');
+
+      showSignupLink.addEventListener('click', () => {
+        loginSection.style.display = 'none';
+        signupSection.style.display = 'block';
+      });
+
+      showLoginLink.addEventListener('click', () => {
+        signupSection.style.display = 'none';
+        loginSection.style.display = 'block';
+      });
+
+      signupForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const username = document.getElementById('signupUsername').value;
+        const password = document.getElementById('signupPassword').value;
+        const image = document.getElementById('signupImage').value;
+
+        const users = JSON.parse(localStorage.getItem('users')) || [];
+        const userExists = users.some(user => user.username === username);
+        if (userExists) {
+          alert('Username already exists. Please choose a different username.');
+          return;
+        }
+
+        users.push({ username, password, image });
+        localStorage.setItem('users', JSON.stringify(users));
+        alert('User registered successfully. You can now log in.');
+        signupSection.style.display = 'none';
+        loginSection.style.display = 'block';
+      });
+
+      loginForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const username = document.getElementById('loginUsername').value;
+        const password = document.getElementById('loginPassword').value;
+
+        const users = JSON.parse(localStorage.getItem('users')) || [];
+        const user = users.find(user => user.username === username && user.password === password);
+        if (!user) {
+          alert('Invalid username or password.');
+          return;
+        }
+
+        loginSection.style.display = 'none';
+        dashboardSection.style.display = 'block';
+
+        const userDiv = document.createElement('div');
+        userDiv.className = 'user';
+        userDiv.innerHTML = `<img src="${user.image}" alt="User Image"><p>${user.username}</p>`;
+        userList.appendChild(userDiv);
+
+        socket.emit('join', user.username);
+
+        const storedMessages = localStorage.getItem('messages');
+        if (storedMessages) {
+          messagesDiv.innerHTML = storedMessages;
+        }
+
+        sendMessageBtn.addEventListener('click', () => {
+          const message = newMessageInput.value.trim();
+          if (message !== '') {
+            socket.emit('chat', { username: user.username, message });
+            newMessageInput.value = '';
+          }
+        });
+
+        socket.on('chat', (data) => {
+          const messageDiv = document.createElement('div');
+          messageDiv.innerHTML = `<strong>${data.username}:</strong> ${data.message}`;
+          messagesDiv.appendChild(messageDiv);
+          localStorage.setItem('messages', messagesDiv.innerHTML);
+        });
+
+        dashboardInput.addEventListener('change', () => {
+          const file = dashboardInput.files[0];
+          const formData = new FormData();
+          formData.append('media', file);
+          fetch('/upload', {
+            method: 'POST',
+            body: formData
+          })
+          .then(response => response.json())
+          .then(post => {
+            const postDiv = document.createElement('div');
+            postDiv.className = 'post';
+            if (post.type === 'image') {
+              postDiv.innerHTML = `<img src="${post.url}" alt="Image">`;
+            } else if (post.type === 'video') {
+              postDiv.innerHTML = `<video controls><source src="${post.url}" type="video/mp4">Your browser does not support the video tag.</video>`;
+            }
+            postsDiv.appendChild(postDiv);
+          })
+          .catch(error => console.error('Error uploading file:', error));
+        });
+
+        fetch('/posts')
+          .then(response => response.json())
+          .then(posts => {
+            posts.forEach(post => {
+              const postDiv = document.createElement('div');
+              postDiv.className = 'post';
+              if (post.type === 'image') {
+                postDiv.innerHTML = `<img src="${post.url}" alt="Image">`;
+              } else if (post.type === 'video') {
+                postDiv.innerHTML = `<video controls><source src="${post.url}" type="video/mp4">Your browser does not support the video tag.</video>`;
+              }
+              postsDiv.appendChild(postDiv);
+            });
+          });
+
+        goToChats.addEventListener('click', () => {
+          dashboardSection.style.display = 'none';
+          chatSection.style.display = 'block';
+        });
+
+        goToDashboard.addEventListener('click', () => {
+          chatSection.style.display = 'none';
+          dashboardSection.style.display = 'block';
+        });
+      });
+    });
+  </script>
+</body>
+</html>
